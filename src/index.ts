@@ -1,4 +1,13 @@
-export type { BugReport, ReportEnvironment, ReportLogEntry, ReportRequest } from "./report/types";
+export type {
+  BugReport,
+  ReportEnvironment,
+  ReportEvent,
+  ReportLogEntry,
+  ReportRequest,
+  ReportSocketEvent,
+  ReportStateChange,
+  ReportStateEvent,
+} from "./report/types";
 export { renderMarkdown } from "./report/render-markdown";
 
 export type {

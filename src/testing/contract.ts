@@ -50,11 +50,7 @@ const report: BugReport = {
     app: { id: "com.example.app", version: "1.2.3" },
     reporter: { name: "Heimdall", version: "0.0.0" },
   },
-  request: {
-    method: "POST",
-    url: "https://api.example.com/orders",
-    status: 500,
-  },
+  events: [{ kind: "request", method: "POST", url: "https://api.example.com/orders", status: 500 }],
 };
 
 const attachment = {

@@ -1,4 +1,12 @@
-import type { BugReport, ReportEnvironment, ReportLogEntry, ReportRequest } from "./types";
+import type {
+  BugReport,
+  ReportEnvironment,
+  ReportEvent,
+  ReportLogEntry,
+  ReportRequest,
+  ReportSocketEvent,
+  ReportStateEvent,
+} from "./types";
 
 const DEFAULT_MAX_BODY_CHARS = 4000;
 
@@ -71,7 +79,7 @@ function renderRequest({ request, maxBodyChars }: { request: ReportRequest; maxB
     separator: " · ",
   });
 
-  const lines = ["### Request", "", summary];
+  const lines = [summary];
   if (request.error) lines.push("", `**Error:** ${request.error}`);
 
   const sections: [string, string | undefined, string][] = [
@@ -99,13 +107,67 @@ function renderRequest({ request, maxBodyChars }: { request: ReportRequest; maxB
   return lines;
 }
 
+const SOCKET_DIRECTION = { in: "received", out: "sent" } as const;
+
+function renderSocket({ event, maxBodyChars }: { event: ReportSocketEvent; maxBodyChars: number }): string[] {
+  const what =
+    event.phase === "frame" ? `frame ${event.direction ? SOCKET_DIRECTION[event.direction] : ""}`.trim() : event.phase;
+  const lines = [`**${what}** ${inlineCode(event.url)}`];
+  const details = joinDefined({
+    parts: [event.code === undefined ? undefined : `code ${event.code}`, event.reason, event.error],
+    separator: " · ",
+  });
+  if (details) lines.push("", details);
+  if (event.data) {
+    lines.push(
+      "",
+      codeBlock({ content: truncate({ text: event.data, max: maxBodyChars }), language: bodyLanguage(event.data) }),
+    );
+  }
+  return lines;
+}
+
+function renderState(event: ReportStateEvent): string[] {
+  const lines = [
+    joinDefined({ parts: [`**${event.store}**`, event.action && inlineCode(event.action)], separator: " · " }),
+  ];
+  if (event.changes.length === 0) return lines;
+  const diff = event.changes.flatMap((change) => [
+    ...(change.before === undefined ? [] : [`- ${change.key}: ${change.before}`]),
+    ...(change.after === undefined ? [] : [`+ ${change.key}: ${change.after}`]),
+  ]);
+  return [...lines, "", codeBlock({ content: diff.join("\n"), language: "diff" })];
+}
+
+const EVENT_TITLE: Record<ReportEvent["kind"], string> = {
+  request: "Request",
+  log: "Console",
+  socket: "WebSocket",
+  state: "State change",
+};
+
+function renderEvent({ event, maxBodyChars }: { event: ReportEvent; maxBodyChars: number }): string[] {
+  const lines = [`### ${EVENT_TITLE[event.kind]}`, ""];
+  if (event.note) lines.push(...event.note.split("\n").map((line) => `> ${line}`), "");
+  switch (event.kind) {
+    case "request":
+      return [...lines, ...renderRequest({ request: event, maxBodyChars })];
+    case "log":
+      return [...lines, codeBlock({ content: renderLogEntry(event) })];
+    case "socket":
+      return [...lines, ...renderSocket({ event, maxBodyChars })];
+    case "state":
+      return [...lines, ...renderState(event)];
+  }
+}
+
 const renderLogEntry = (entry: ReportLogEntry): string => {
   const head = `${new Date(entry.ts).toISOString()} ${entry.level.toUpperCase()} ${entry.message}`;
   return entry.stack ? `${head}\n${entry.stack}` : head;
 };
 
 const renderConsole = (entries: ReportLogEntry[]): string[] =>
-  entries.length > 0 ? ["### Console", "", codeBlock({ content: entries.map(renderLogEntry).join("\n") })] : [];
+  entries.length > 0 ? ["### Console around", "", codeBlock({ content: entries.map(renderLogEntry).join("\n") })] : [];
 
 /** Default Markdown rendering of a report; adapters for trackers with another markup convert the report themselves. */
 export function renderMarkdown({
@@ -118,7 +180,7 @@ export function renderMarkdown({
   const blocks: string[][] = [
     report.description ? [report.description] : [],
     renderEnvironment(report.environment),
-    report.request ? renderRequest({ request: report.request, maxBodyChars }) : [],
+    ...(report.events ?? []).map((event) => renderEvent({ event, maxBodyChars })),
     renderConsole(report.console ?? []),
   ];
 

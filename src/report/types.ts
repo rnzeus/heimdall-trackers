@@ -21,6 +21,7 @@ export type ReportEnvironment = {
 };
 
 export type ReportRequest = {
+  ts?: number;
   method: string;
   url: string;
   status?: number;
@@ -40,6 +41,35 @@ export type ReportLogEntry = {
   stack?: string;
 };
 
+export type ReportSocketEvent = {
+  url: string;
+  ts: number;
+  phase: "open" | "close" | "error" | "frame";
+  direction?: "in" | "out";
+  data?: string;
+  code?: number;
+  reason?: string;
+  error?: string;
+};
+
+/** One changed top-level key of a store; values are already serialized (and masked) by the caller. */
+export type ReportStateChange = { key: string; before?: string; after?: string };
+
+export type ReportStateEvent = {
+  store: string;
+  ts: number;
+  action?: string;
+  changes: ReportStateChange[];
+};
+
+/** An event the reporter singled out (pinned), with their note. */
+export type ReportEvent = { note?: string } & (
+  | ({ kind: "request" } & ReportRequest)
+  | ({ kind: "log" } & ReportLogEntry)
+  | ({ kind: "socket" } & ReportSocketEvent)
+  | ({ kind: "state" } & ReportStateEvent)
+);
+
 /**
  * Tracker-agnostic bug report. Secrets must already be masked by the caller:
  * adapters send it to a third-party service as is.
@@ -48,6 +78,8 @@ export type BugReport = {
   title: string;
   description?: string;
   environment: ReportEnvironment;
-  request?: ReportRequest;
+  /** the events the report is about, in the order they happened */
+  events?: ReportEvent[];
+  /** console errors and warnings around the events, for context */
   console?: ReportLogEntry[];
 };

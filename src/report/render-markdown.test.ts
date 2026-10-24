@@ -17,18 +17,38 @@ const report: BugReport = {
     sdkVersion: "0.4.0",
     reporter: { name: "Heimdall", version: "0.4.0" },
   },
-  request: {
-    method: "post",
-    url: "https://api.example.com/orders",
-    status: 500,
-    durationMs: 812.4,
-    requestHeaders: {
-      Authorization: "•••",
-      "Content-Type": "application/json",
+  events: [
+    {
+      kind: "request",
+      note: "Pay button",
+      method: "post",
+      url: "https://api.example.com/orders",
+      status: 500,
+      durationMs: 812.4,
+      requestHeaders: {
+        Authorization: "•••",
+        "Content-Type": "application/json",
+      },
+      responseBody: '{"error":"internal"}',
+      curl: "curl -X POST 'https://api.example.com/orders'",
     },
-    responseBody: '{"error":"internal"}',
-    curl: "curl -X POST 'https://api.example.com/orders'",
-  },
+    { kind: "log", level: "error", ts: Date.UTC(2026, 9, 22, 12, 3, 14), message: "Cannot read total" },
+    {
+      kind: "socket",
+      url: "wss://rt.example.com",
+      ts: Date.UTC(2026, 9, 22, 12, 3, 16),
+      phase: "frame",
+      direction: "in",
+      data: '{"type":"order.failed"}',
+    },
+    {
+      kind: "state",
+      store: "cart",
+      action: "checkout/fail",
+      ts: Date.UTC(2026, 9, 22, 12, 3, 17),
+      changes: [{ key: "status", before: '"paying"', after: '"failed"' }],
+    },
+  ],
   console: [
     {
       level: "error",
@@ -47,11 +67,16 @@ describe("renderMarkdown", () => {
     expect(markdown).toContain("- **App:** com.example.app 1.2.3 (45), stage");
     expect(markdown).toContain("- **Device:** iPhone 17 Pro · iOS 26.0");
     expect(markdown).toContain("- **SDK:** 0.4.0");
-    expect(markdown).toContain("**POST** `https://api.example.com/orders` · **500** · 812 ms");
+    expect(markdown).toContain(
+      "### Request\n\n> Pay button\n\n**POST** `https://api.example.com/orders` · **500** · 812 ms",
+    );
     expect(markdown).toContain("```http\nAuthorization: •••\nContent-Type: application/json\n```");
     expect(markdown).toContain('```json\n{"error":"internal"}\n```');
     expect(markdown).toContain("```bash\ncurl -X POST");
-    expect(markdown).toContain("2026-10-22T12:03:15.000Z ERROR Payment failed\nat pay()");
+    expect(markdown).toContain("### Console\n\n```\n2026-10-22T12:03:14.000Z ERROR Cannot read total\n```");
+    expect(markdown).toContain('**frame received** `wss://rt.example.com`\n\n```json\n{"type":"order.failed"}\n```');
+    expect(markdown).toContain('**cart** · `checkout/fail`\n\n```diff\n- status: "paying"\n+ status: "failed"\n```');
+    expect(markdown).toContain("### Console around\n\n```\n2026-10-22T12:03:15.000Z ERROR Payment failed\nat pay()");
     expect(markdown.endsWith("---\n_Reported with Heimdall 0.4.0_")).toBe(true);
   });
 
@@ -64,11 +89,7 @@ describe("renderMarkdown", () => {
       report: {
         title: "x",
         environment: {},
-        request: {
-          method: "GET",
-          url: "https://x.dev",
-          responseBody: "a ``` b",
-        },
+        events: [{ kind: "request", method: "GET", url: "https://x.dev", responseBody: "a ``` b" }],
       },
     });
     expect(markdown).toContain("````\na ``` b\n````");
@@ -79,11 +100,7 @@ describe("renderMarkdown", () => {
       report: {
         title: "x",
         environment: {},
-        request: {
-          method: "GET",
-          url: "https://x.dev",
-          responseBody: "a".repeat(20),
-        },
+        events: [{ kind: "request", method: "GET", url: "https://x.dev", responseBody: "a".repeat(20) }],
       },
       maxBodyChars: 5,
     });
