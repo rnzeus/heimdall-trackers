@@ -1,0 +1,6 @@
+import type { TrackerLogo } from "../../adapter/types";
+
+export const clickupLogo: TrackerLogo = {
+  color: `<svg fill="none" height="38" viewBox="0 0 32 38" width="32" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><linearGradient id="a" gradientUnits="userSpaceOnUse" x1="0" x2="31.2358" y1="40.2438" y2="40.2438"><stop offset="0" stop-color="#7612fa"/><stop offset="1" stop-color="#40ddff"/></linearGradient><linearGradient id="b" gradientUnits="userSpaceOnUse" x1=".68116" x2="30.6097" y1="21.9883" y2="21.9883"><stop offset="0" stop-color="#fa12e3"/><stop offset="1" stop-color="#ffd700"/></linearGradient><path d="m0 29.087 5.76396-4.46c3.06234 4.037 6.31594 5.8978 9.93744 5.8978 3.6022 0 6.7638-1.8388 9.6881-5.8441l5.8463 4.3525c-4.2195 5.7756-9.463 8.8272-15.5344 8.8272-6.05203 0-11.34635-3.032-15.7014-8.7734z" fill="url(#a)"/><path d="m15.683 9.70266-10.25946 8.92994-4.74238-5.5555 15.02364-13.07702371 14.9049 13.08672371-4.7641 5.536z" fill="url(#b)"/></svg>`,
+  mono: `<svg fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M2 18.439l3.69-2.828c1.961 2.56 4.044 3.739 6.363 3.739 2.307 0 4.33-1.166 6.203-3.704L22 18.405C19.298 22.065 15.941 24 12.053 24 8.178 24 4.788 22.078 2 18.439zM12.04 6.15l-6.568 5.66-3.036-3.52L12.055 0l9.543 8.296-3.05 3.509z"/></svg>`,
+};
