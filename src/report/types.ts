@@ -70,6 +70,12 @@ export type ReportEvent = { note?: string } & (
   | ({ kind: "state" } & ReportStateEvent)
 );
 
+/** When the bug was reported and which span of time the attachments cover. */
+export type ReportMoment = {
+  ts: number;
+  range?: { from: number; to: number };
+};
+
 /**
  * Tracker-agnostic bug report. Secrets must already be masked by the caller:
  * adapters send it to a third-party service as is.
@@ -78,8 +84,13 @@ export type BugReport = {
   title: string;
   description?: string;
   environment: ReportEnvironment;
-  /** the events the report is about, in the order they happened */
+  moment?: ReportMoment;
+  /** the events the report is about, in full, in the order they happened */
   events?: ReportEvent[];
-  /** console errors and warnings around the events, for context */
-  console?: ReportLogEntry[];
+  /** failures found automatically: failed requests, console errors, socket errors; `total` counts the ones left out too */
+  signals?: { items: ReportEvent[]; total: number };
+  /** what happened right before, oldest first, one line each */
+  trail?: ReportEvent[];
+  /** names of the files attached to the issue */
+  attachments?: string[];
 };

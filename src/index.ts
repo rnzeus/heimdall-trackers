@@ -3,6 +3,7 @@ export type {
   ReportEnvironment,
   ReportEvent,
   ReportLogEntry,
+  ReportMoment,
   ReportRequest,
   ReportSocketEvent,
   ReportStateChange,

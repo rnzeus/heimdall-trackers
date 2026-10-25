@@ -3,12 +3,14 @@ import type {
   ReportEnvironment,
   ReportEvent,
   ReportLogEntry,
+  ReportMoment,
   ReportRequest,
   ReportSocketEvent,
   ReportStateEvent,
 } from "./types";
 
 const DEFAULT_MAX_BODY_CHARS = 4000;
+const MAX_LINE_MESSAGE_CHARS = 200;
 
 const longestBacktickRun = (text: string): number =>
   Math.max(0, ...Array.from(text.matchAll(/`+/g), (match) => match[0].length));
@@ -109,10 +111,11 @@ function renderRequest({ request, maxBodyChars }: { request: ReportRequest; maxB
 
 const SOCKET_DIRECTION = { in: "received", out: "sent" } as const;
 
+const socketPhase = (event: ReportSocketEvent): string =>
+  event.phase === "frame" ? `frame ${event.direction ? SOCKET_DIRECTION[event.direction] : ""}`.trim() : event.phase;
+
 function renderSocket({ event, maxBodyChars }: { event: ReportSocketEvent; maxBodyChars: number }): string[] {
-  const what =
-    event.phase === "frame" ? `frame ${event.direction ? SOCKET_DIRECTION[event.direction] : ""}`.trim() : event.phase;
-  const lines = [`**${what}** ${inlineCode(event.url)}`];
+  const lines = [`**${socketPhase(event)}** ${inlineCode(event.url)}`];
   const details = joinDefined({
     parts: [event.code === undefined ? undefined : `code ${event.code}`, event.reason, event.error],
     separator: " · ",
@@ -166,8 +169,74 @@ const renderLogEntry = (entry: ReportLogEntry): string => {
   return entry.stack ? `${head}\n${entry.stack}` : head;
 };
 
-const renderConsole = (entries: ReportLogEntry[]): string[] =>
-  entries.length > 0 ? ["### Console around", "", codeBlock({ content: entries.map(renderLogEntry).join("\n") })] : [];
+const clockTime = (ts: number): string => new Date(ts).toISOString().slice(11, 19);
+
+function renderMoment(moment: ReportMoment): string[] {
+  const covers = moment.range ? ` · covers ${clockTime(moment.range.from)}–${clockTime(moment.range.to)}` : "";
+  return ["### When", "", `Reported at ${clockTime(moment.ts)} UTC${covers}`];
+}
+
+const firstLine = (text: string): string => {
+  const line = text.split("\n", 1)[0] ?? "";
+  return line.length > MAX_LINE_MESSAGE_CHARS ? `${line.slice(0, MAX_LINE_MESSAGE_CHARS)}…` : line;
+};
+
+/** One Markdown line of an event, without bodies or headers. */
+function renderEventLine(event: ReportEvent): string {
+  const time = event.ts === undefined ? undefined : inlineCode(clockTime(event.ts));
+  const what = (() => {
+    switch (event.kind) {
+      case "request":
+        return joinDefined({
+          parts: [
+            `**${event.method.toUpperCase()}** ${inlineCode(event.url)}`,
+            event.status === undefined ? undefined : `**${event.status}**`,
+            event.error,
+          ],
+          separator: " · ",
+        });
+      case "log":
+        return `**${event.level.toUpperCase()}** ${firstLine(event.message)}`;
+      case "socket":
+        return joinDefined({
+          parts: [
+            `**${socketPhase(event)}** ${inlineCode(event.url)}`,
+            event.code === undefined ? undefined : `code ${event.code}`,
+            event.reason,
+            event.error,
+          ],
+          separator: " · ",
+        });
+      case "state":
+        return joinDefined({
+          parts: [
+            `**${event.store}**`,
+            event.action && inlineCode(event.action),
+            event.changes.length > 0 ? event.changes.map((change) => change.key).join(", ") : undefined,
+          ],
+          separator: " · ",
+        });
+    }
+  })();
+  return `- ${joinDefined({ parts: [time, what], separator: " " })}`;
+}
+
+function renderSignals(signals: NonNullable<BugReport["signals"]>): string[] {
+  if (signals.items.length === 0) return [];
+  const more = signals.total > signals.items.length ? ` (${signals.items.length} of ${signals.total})` : "";
+  return [`### Found automatically${more}`, "", ...signals.items.map(renderEventLine)];
+}
+
+const renderTrail = (trail: ReportEvent[]): string[] =>
+  trail.length > 0 ? ["### Last activity", "", ...trail.map(renderEventLine)] : [];
+
+function renderAttachments(names: string[]): string[] {
+  if (names.length === 0) return [];
+  const lines = ["### Attachments", "", ...names.map((name) => `- ${inlineCode(name)}`)];
+  if (names.some((name) => name.endsWith(".edda")))
+    lines.push("", "Open the `.edda` file in Heimdall to see every event.");
+  return lines;
+}
 
 /** Default Markdown rendering of a report; adapters for trackers with another markup convert the report themselves. */
 export function renderMarkdown({
@@ -179,9 +248,12 @@ export function renderMarkdown({
 }): string {
   const blocks: string[][] = [
     report.description ? [report.description] : [],
+    report.moment ? renderMoment(report.moment) : [],
     renderEnvironment(report.environment),
     ...(report.events ?? []).map((event) => renderEvent({ event, maxBodyChars })),
-    renderConsole(report.console ?? []),
+    report.signals ? renderSignals(report.signals) : [],
+    renderTrail(report.trail ?? []),
+    renderAttachments(report.attachments ?? []),
   ];
 
   const { reporter } = report.environment;
