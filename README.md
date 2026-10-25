@@ -1,6 +1,8 @@
 # @rnzeus/heimdall-trackers
 
-Issue tracker adapters for [Heimdall](https://heimdall.rnzeus.dev) — the debugger for dev and stage builds of React Native apps. A QA engineer captures a failing request in Heimdall, and the adapter turns it into a task with the request, the environment, console errors and the session file attached.
+Issue tracker adapters for [Heimdall](https://heimdall.rnzeus.dev) — the debugger for dev and stage builds of React Native apps. A QA engineer presses Report when something goes wrong; Heimdall collects what happened around that moment — failed requests, console errors and the last steps before it — and the adapter turns it into a task with the session file attached.
+
+![Bug report in Heimdall: failures found automatically and the last activity](https://heimdall.rnzeus.dev/readme/report.png)
 
 Supported: **ClickUp** (beta). Planned: Jira, Linear, GitHub Issues, GitLab Issues, Asana, Trello (`plannedTrackers`). More trackers are welcome — see [Writing an adapter](#writing-an-adapter).
 
@@ -31,7 +33,7 @@ try {
       title: "POST /orders → 500",
       description: "Tapped Pay, nothing happened",
       environment: { app: { id: "com.example.app", version: "1.2.3" }, sdkVersion: "0.4.0" },
-      request: { method: "POST", url: "https://api.example.com/orders", status: 500 },
+      events: [{ kind: "request", method: "POST", url: "https://api.example.com/orders", status: 500 }],
     },
     attachments: [{ name: "session.edda", type: "application/json", data: bytes }],
   });
@@ -46,6 +48,26 @@ try {
 **Mask secrets before building a report** — adapters send it to the tracker as is.
 
 `renderMarkdown({ report })` gives the default Markdown of a report, e.g. for a "Copy bug report" button.
+
+## Report
+
+A `BugReport` is tracker-agnostic; every field but `title` and `environment` is optional.
+
+| Field | What it holds | Markdown |
+|---|---|---|
+| `title`, `description` | written by the reporter | issue title, first paragraph |
+| `moment` | when it was reported and the span the attachments cover | **When** |
+| `environment` | app, device, SDK and the tool that made the report | **Environment** |
+| `events` | the events the report is about, in full: `request`, `log`, `socket` or `state`, with the reporter's note | one section each, with headers, bodies and diffs |
+| `signals` | failures found automatically — failed requests, console errors, socket errors — and their `total` | **Found automatically**, one line each |
+| `trail` | the last steps before the moment, oldest first | **Last activity**, one line each |
+| `attachments` | names of the attached files | **Attachments**, with a hint to open `.edda` in Heimdall |
+
+Adapters for trackers with another markup (Jira's ADF, for example) convert the report themselves instead of using `renderMarkdown`.
+
+In Heimdall, trackers are connected in Settings → Integrations; the token stays on the computer, encrypted by the OS.
+
+![Settings → Integrations in Heimdall](https://heimdall.rnzeus.dev/readme/integrations.png)
 
 ## Writing an adapter
 
