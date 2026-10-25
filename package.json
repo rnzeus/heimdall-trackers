@@ -1,6 +1,6 @@
 {
   "name": "@rnzeus/heimdall-trackers",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Issue tracker adapters for Heimdall — turn a captured bug report into a task in ClickUp and other trackers",
   "license": "MIT",
   "author": "Volodymyr Dudkevych",
